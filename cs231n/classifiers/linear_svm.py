@@ -25,23 +25,27 @@ def svm_loss_naive(W, X, y, reg):
   # compute the loss and the gradient
   num_classes = W.shape[1]
   num_train = X.shape[0]
-  loss = 0.0
+  loss = 0.0  
   for i in xrange(num_train):
     scores = X[i].dot(W)
     correct_class_score = scores[y[i]]
+    diff = 0
     for j in xrange(num_classes):
       if j == y[i]:
         continue
       margin = scores[j] - correct_class_score + 1 # note delta = 1
       if margin > 0:
         loss += margin
-
+        dW[:,j]+=X[i]
+        diff +=1
+    dW[:, y[i]] += -diff * X[i]
   # Right now the loss is a sum over all training examples, but we want it
   # to be an average instead so we divide by num_train.
   loss /= num_train
-
+  dW /= num_train
+  dW += reg*W
   # Add regularization to the loss.
-  loss += reg * np.sum(W * W)
+  loss += 0.5 * reg * np.sum(W * W)
 
   #############################################################################
   # TODO:                                                                     #
@@ -70,7 +74,17 @@ def svm_loss_vectorized(W, X, y, reg):
   # Implement a vectorized version of the structured SVM loss, storing the    #
   # result in loss.                                                           #
   #############################################################################
-  pass
+  # Fully vectorized:
+  # scores: 500*10
+  scores=X.dot(W)
+  # correct_class_score: 500*
+  # correct_class_score[:,np.newaxis]: 500*1
+  correct_class_score=scores[np.arange(X.shape[0]),y]
+  margins=np.maximum(0,scores-correct_class_score[:,np.newaxis]+1.0)
+  margins[np.arange(X.shape[0]),y]=0
+  loss=np.sum(margins)
+  loss /= X.shape[0] # get mean
+  loss += 0.5*reg * np.sum(W * W) # regularization
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -85,7 +99,14 @@ def svm_loss_vectorized(W, X, y, reg):
   # to reuse some of the intermediate values that you used to compute the     #
   # loss.                                                                     #
   #############################################################################
-  pass
+  # get the counts of unmatch labels
+  temp=margins
+  temp[margins>0]=1
+  diff=np.sum(temp, axis=1)
+  temp[np.arange(X.shape[0]), y] = -diff
+  dW = X.T.dot(temp)
+  dW /= X.shape[0]# average out weights
+  dW += reg*W # regularize the weights
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
